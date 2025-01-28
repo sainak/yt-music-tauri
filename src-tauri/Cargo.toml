@@ -1,0 +1,26 @@
+[package]
+name = "yt-music-tauri"
+version = "1.0.0"
+description = "Youtube Music Desktop App built with Tauri"
+authors = ["sainak"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri-plugin-opener = "2"
+serde_json = "1"
+tauri = { version = "2.2.0", features = ["image-ico", "image-png", "macos-proxy"] }
+tauri-plugin-window-state = "2.2.0"
+tauri-plugin-single-instance = "2.2.0"
+tauri-plugin-decorum = "1.1.1"
