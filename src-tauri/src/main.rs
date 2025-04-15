@@ -58,6 +58,8 @@ pub fn main() {
         .setup(move |app| {
             let window = set_window(app, label);
 
+            #[cfg(debug_assertions)] { window.open_devtools(); }
+
             window.create_overlay_titlebar().unwrap();
             // Set a custom inset to the traffic lights
             window.set_traffic_lights_inset(8.0, 8.0).unwrap();
