@@ -1,6 +1,3 @@
-// Prevents additional console window on Windows in release, DO NOT REMOVE!!
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-
 use std::path::PathBuf;
 
 use tauri::{
@@ -13,12 +10,10 @@ use tauri_plugin_decorum::WebviewWindowExt;
 use tauri_plugin_window_state::Builder as WindowStatePlugin;
 use tauri_plugin_window_state::StateFlags;
 
-pub fn set_window(app: &mut App) -> WebviewWindow {
+pub fn set_window(app: &mut App, label: &str) -> WebviewWindow {
     let url = WebviewUrl::App(PathBuf::from("https://music.youtube.com/"));
-
-    let user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.1 Safari/605.1.15";
-
-    let window_builder = WebviewWindowBuilder::new(app, "main", url)
+    let user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.4 Safari/605.1.15";
+    let window_builder = WebviewWindowBuilder::new(app, label, url)
         .title("")
         .visible(false)
         .user_agent(user_agent)
@@ -33,6 +28,8 @@ pub fn set_window(app: &mut App) -> WebviewWindow {
 }
 
 pub fn main() {
+    let label: &str = if cfg!(debug_assertions) { "debug" } else { "main" };
+
     tauri::Builder::default()
         .plugin(
             WindowStatePlugin::default()
@@ -43,7 +40,7 @@ pub fn main() {
                 .build(),
         )
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
-            let window = app.get_webview_window("main").unwrap();
+            let window = app.get_webview_window(label).unwrap();
             window.set_focus().unwrap();
             window
                 .request_user_attention(Some(UserAttentionType::Informational))
@@ -51,7 +48,7 @@ pub fn main() {
         }))
         .plugin(tauri_plugin_decorum::init())
         .setup(move |app| {
-            let window = set_window(app);
+            let window = set_window(app, label);
 
             window.create_overlay_titlebar().unwrap();
             // Set a custom inset to the traffic lights
