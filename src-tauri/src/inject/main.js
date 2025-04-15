@@ -7,6 +7,8 @@ const customStyles = `
     user-select: none;
     -webkit-user-select: none;
 
+    cursor: default;
+
     &::-webkit-scrollbar {
       display: none !important;
     }
