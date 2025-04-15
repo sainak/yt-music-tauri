@@ -1,7 +1,8 @@
 use std::path::PathBuf;
 
 use tauri::{
-    App, Manager, Theme, TitleBarStyle, UserAttentionType, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent,
+    App, Manager, Theme, TitleBarStyle, UserAttentionType, WebviewUrl, WebviewWindow,
+    WebviewWindowBuilder, WindowEvent,
 };
 
 use tauri::async_runtime;
@@ -28,7 +29,13 @@ pub fn set_window(app: &mut App, label: &str) -> WebviewWindow {
 }
 
 pub fn main() {
-    let label: &str = if cfg!(debug_assertions) { "debug" } else { "main" };
+    // let label: &str = if cfg!(debug_assertions) {
+    //     "debug"
+    // } else {
+    //     "main"
+    // };
+
+    let label: &str = "main";
 
     tauri::Builder::default()
         .plugin(
@@ -47,6 +54,7 @@ pub fn main() {
                 .unwrap()
         }))
         .plugin(tauri_plugin_decorum::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .setup(move |app| {
             let window = set_window(app, label);
 
@@ -58,26 +66,23 @@ pub fn main() {
             window.show().unwrap();
             Ok(())
         })
-        .on_window_event(|_window, _event| {
-            match _event {
-                WindowEvent::CloseRequested { api, .. } => {
-                    let window = _window.clone();
-                    async_runtime::spawn(async move {
-                        if window.is_fullscreen().unwrap_or(false) {
-                            window.set_fullscreen(false).unwrap();
-                        }
-                        window.minimize().unwrap();
-                        window.hide().unwrap();
-                    });
-                    api.prevent_close();
-                },
-                WindowEvent::Resized(_) => {
-                    std::thread::sleep(std::time::Duration::from_nanos(1));
-                },
-                _ => (),
+        .on_window_event(|_window, _event| match _event {
+            WindowEvent::CloseRequested { api, .. } => {
+                let window = _window.clone();
+                async_runtime::spawn(async move {
+                    if window.is_fullscreen().unwrap_or(false) {
+                        window.set_fullscreen(false).unwrap();
+                    }
+                    window.minimize().unwrap();
+                    window.hide().unwrap();
+                });
+                api.prevent_close();
             }
+            WindowEvent::Resized(_) => {
+                std::thread::sleep(std::time::Duration::from_nanos(1));
+            }
+            _ => (),
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
-

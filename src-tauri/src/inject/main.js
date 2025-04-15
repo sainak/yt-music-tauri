@@ -78,6 +78,16 @@ document.addEventListener('DOMContentLoaded', () => {
   // });
 
 
+  document.addEventListener('copy', async (event) =>  {
+    const value = event.target.value
+    if (value) {
+      event.preventDefault();
+      const url = new URL(value);
+      url.searchParams.delete('si');
+      await tauri.clipboardManager.writeText(url.toString());
+    }
+  });
+
   const cachedRes = []
 
   // find all urls in the head and add them to the cachedRes 
