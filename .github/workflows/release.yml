@@ -18,23 +18,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+
       - name: setup node
         uses: actions/setup-node@v4
         with:
           node-version-file: "package.json"
           cache: "pnpm"
 
-      - uses: pnpm/action-setup@v4
-        name: Install pnpm
-        with:
-          run_install: true
+      - name: install dependencies
+        run: pnpm install
 
       - name: install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: "aarch64-apple-darwin,x86_64-apple-darwin"
 
-      - name: Rust cache
+      - name: cache rust
         uses: swatinem/rust-cache@v2
         with:
           workspaces: "./src-tauri -> target"
