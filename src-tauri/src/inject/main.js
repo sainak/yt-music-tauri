@@ -12,6 +12,9 @@ const customStyles = `
     &::-webkit-scrollbar {
       display: none !important;
     }
+    &::-webkit-scrollbar-thumb {
+      display: none !important;
+    }
   }
 
   #layout {
@@ -29,6 +32,7 @@ const customStyles = `
   }
 
   ytmusic-player-bar {
+    width:100vw !important;
     background: transparent !important;
   }
 
