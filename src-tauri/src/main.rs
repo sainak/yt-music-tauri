@@ -12,6 +12,7 @@ use tauri_plugin_window_state::Builder as WindowStatePlugin;
 use tauri_plugin_window_state::StateFlags;
 
 pub fn set_window(app: &mut App, label: &str) -> WebviewWindow {
+    let debug = cfg!(debug_assertions);
     let url = WebviewUrl::App(PathBuf::from("https://music.youtube.com/"));
     let user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.4 Safari/605.1.15";
     let window_builder = WebviewWindowBuilder::new(app, label, url)
@@ -21,6 +22,7 @@ pub fn set_window(app: &mut App, label: &str) -> WebviewWindow {
         .resizable(true)
         .inner_size(1872.0, 1404.0)
         .disable_drag_drop_handler()
+        .initialization_script(&format!("window.__DEBUG_MODE__ = {};", debug))
         .initialization_script(include_str!("./inject/main.js"))
         .title_bar_style(TitleBarStyle::Overlay)
         .theme(Some(Theme::Dark));

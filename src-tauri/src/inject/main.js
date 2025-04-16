@@ -77,6 +77,10 @@ document.addEventListener('DOMContentLoaded', () => {
   //   });
   // });
 
+  if (!window.__DEBUG_MODE__) {
+    document.addEventListener('contextmenu', event => event.preventDefault());
+  }
+
 
   document.addEventListener('copy', async (event) =>  {
     const value = event.target.value
