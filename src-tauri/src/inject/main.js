@@ -65,6 +65,16 @@ const customStyles = `
 
 
 document.addEventListener('DOMContentLoaded', () => {
+  const LAST_PLAYED_ID = "last-played-id"
+  const lastPlayedId = localStorage.getItem(LAST_PLAYED_ID);
+  if (lastPlayedId) {
+    localStorage.removeItem(LAST_PLAYED_ID);
+    const url = new URL(window.location.href);
+    url.pathname = '/watch';
+    url.search = `?v=${lastPlayedId}`;
+    window.location.href = url.toString();
+  }
+
   const customStylesElement = document.createElement('style');
   customStylesElement.innerHTML = customStyles;
   document.head.appendChild(customStylesElement);
@@ -94,6 +104,34 @@ document.addEventListener('DOMContentLoaded', () => {
       url.searchParams.delete('si');
       await tauri.clipboardManager.writeText(url.toString());
     }
+  });
+
+
+  const titleLinkObserver = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      if (mutation.type === 'attributes') {
+        const url = new URL(mutation.target.href);
+        const v = url.searchParams.get('v');
+        if (v) {
+          localStorage.setItem(LAST_PLAYED_ID, v);
+        }
+      }
+    });
+  })
+
+  const domObserver = new MutationObserver((mutations, obs) => {
+    const titleLink = document.querySelector('.ytp-title-link');
+    if (titleLink) {
+      titleLinkObserver.observe(titleLink, {
+        attributeFilter: ['href']
+      });
+
+      obs.disconnect();
+    }
+  });
+  domObserver.observe(document.body, {
+    childList: true,
+    subtree: true
   });
 
   const cachedRes = []
