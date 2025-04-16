@@ -1,13 +1,9 @@
 name: "Publish release"
 on:
   push:
-    tags:
-      - "v*"
+    branches:
+      - "stable"
   workflow_dispatch:
-    inputs:
-      version:
-        description: "Version to release"
-        required: true
 
 jobs:
   release:
@@ -44,8 +40,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: app-v__VERSION__
-          releaseName: "App v__VERSION__"
+          tagName: v__VERSION__
+          releaseName: "Release v__VERSION__"
           releaseDraft: true
           prerelease: false
           args: "--target universal-apple-darwin"
