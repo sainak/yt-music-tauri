@@ -28,10 +28,6 @@ const customStyles = css`
     }
   }
 
-  ytmusic-menu-popup-renderer {
-    /* WIP: enable scrollbar for the custom right click menu */
-  }
-
   /* inset navbar elements for the traffic lights and taskbar */
   #layout  > ytmusic-nav-bar {
     padding-top: 40px;
