@@ -1,6 +1,6 @@
 [package]
 name = "yt-music-tauri"
-version = "1.0.0"
+version = "1.1.0"
 description = "Youtube Music Desktop App built with Tauri"
 authors = ["sainak"]
 edition = "2021"
@@ -18,3 +18,5 @@ tauri-plugin-window-state = "2.2.0"
 tauri-plugin-single-instance = "2.2.0"
 tauri-plugin-decorum = "1.1.1"
 tauri-plugin-clipboard-manager = "2"
+tauri-plugin-store = "2"
+serde = "1.0.219"

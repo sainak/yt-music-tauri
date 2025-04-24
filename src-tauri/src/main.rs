@@ -1,15 +1,38 @@
 use std::path::PathBuf;
+use std::sync::Mutex;
 
+use serde::{Deserialize, Serialize};
+use serde_json::Value as JsonValue;
+
+use tauri::async_runtime;
 use tauri::{
-    App, Manager, Theme, TitleBarStyle, UserAttentionType, WebviewUrl, WebviewWindow,
+    menu::{AboutMetadata, CheckMenuItemBuilder, MenuBuilder, MenuItem, SubmenuBuilder},
+    App, Manager, State, Theme, TitleBarStyle, UserAttentionType, WebviewUrl, WebviewWindow,
     WebviewWindowBuilder, WindowEvent,
 };
 
-use tauri::async_runtime;
-
 use tauri_plugin_decorum::WebviewWindowExt;
+use tauri_plugin_store::StoreExt;
 use tauri_plugin_window_state::Builder as WindowStatePlugin;
 use tauri_plugin_window_state::StateFlags;
+
+#[derive(Default, Serialize, Deserialize)]
+struct AppState {
+    autoplay: bool,
+}
+
+#[tauri::command]
+fn get_autoplay(state: State<'_, Mutex<AppState>>) -> bool {
+    let state = state.lock().unwrap();
+    state.autoplay
+}
+
+#[tauri::command]
+fn toggle_autoplay(state: State<'_, Mutex<AppState>>) -> bool {
+    let mut state = state.lock().unwrap();
+    state.autoplay = !state.autoplay;
+    state.autoplay
+}
 
 pub fn set_window(app: &mut App, label: &str) -> WebviewWindow {
     let debug = cfg!(debug_assertions);
@@ -40,6 +63,7 @@ pub fn main() {
     let label: &str = "main";
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(
             WindowStatePlugin::default()
                 .with_state_flags(
@@ -57,10 +81,83 @@ pub fn main() {
         }))
         .plugin(tauri_plugin_decorum::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .invoke_handler(tauri::generate_handler![get_autoplay, toggle_autoplay])
         .setup(move |app| {
+            let store = app.store("store.json")?;
+            store
+                .get("config")
+                .map(|config: JsonValue| {
+                    let config: AppState = serde_json::from_value(config).unwrap_or_else(|_| {
+                        // if the config is not valid, create a new one
+                        let config = AppState::default();
+                        store.set("config", serde_json::to_value(&config).unwrap());
+                        store.save().unwrap();
+                        config
+                    });
+                    app.manage(Mutex::new(config));
+                })
+                .unwrap_or_else(|| {
+                    app.manage(Mutex::new(AppState::default()));
+                });
+            store.close_resource();
+
+            let setting_check_autoplay = CheckMenuItemBuilder::new("Enable Autoplay")
+                .id("autoplay")
+                .checked(get_autoplay(app.state()))
+                .build(app)?;
+
+            let settings_sub_menu = SubmenuBuilder::new(app, "Settings...")
+                .item(&setting_check_autoplay)
+                .build()?;
+
+            let custom_quit = MenuItem::with_id(
+                app.app_handle(),
+                "custom_quit",
+                "Quit",
+                true,
+                Some("Command+Q"),
+            )?;
+
+            let app_submenu = SubmenuBuilder::new(app, "App")
+                .about(Some(AboutMetadata {
+                    ..Default::default()
+                }))
+                .separator()
+                .item(&settings_sub_menu)
+                .separator()
+                .hide()
+                .hide_others()
+                .item(&custom_quit)
+                .build()?;
+
+            let menu = MenuBuilder::new(app).items(&[&app_submenu]).build()?;
+
+            app.set_menu(menu)?;
+
+            app.on_menu_event(move |app, event| {
+                if event.id() == setting_check_autoplay.id() {
+                    let enabled = toggle_autoplay(app.state());
+                    setting_check_autoplay
+                        .set_checked(enabled)
+                        .expect("Failed to set checked");
+                }
+                if event.id() == custom_quit.id() {
+                    let state_mutex = app.state::<Mutex<AppState>>();
+                    let store = app.store("store.json").unwrap();
+                    store.set("config", serde_json::to_value(&*state_mutex.lock().unwrap()).unwrap());
+                    store.save().unwrap();
+                    store.close_resource();
+
+                    app.exit(0);
+                }
+            });
+
             let window = set_window(app, label);
 
-            #[cfg(debug_assertions)] { window.open_devtools(); }
+            #[cfg(debug_assertions)]
+            {
+                window.open_devtools();
+            }
 
             window.create_overlay_titlebar().unwrap();
             // Set a custom inset to the traffic lights

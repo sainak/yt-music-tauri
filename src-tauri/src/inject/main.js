@@ -77,22 +77,25 @@ const customStyles = css`
 
 
 document.addEventListener('DOMContentLoaded', () => {
+  const tauri = window.__TAURI__;
   const LAST_PLAYED_ID = "last-played-id"
-  const lastPlayedId = localStorage.getItem(LAST_PLAYED_ID);
-  if (lastPlayedId) {
-    localStorage.removeItem(LAST_PLAYED_ID);
-    const url = new URL(window.location.href);
-    url.pathname = '/watch';
-    url.search = `?v=${lastPlayedId}`;
-    window.location.href = url.toString();
-  }
+
+  tauri.core.invoke("get_autoplay").then((autoplay) => {
+    const lastPlayedId = localStorage.getItem(LAST_PLAYED_ID);
+    if (autoplay && lastPlayedId) {
+      localStorage.removeItem(LAST_PLAYED_ID);
+      const url = new URL(window.location.href);
+      url.pathname = '/watch';
+      url.search = `?v=${lastPlayedId}`;
+      window.location.href = url.toString();
+    }
+  })
 
   const customStylesElement = document.createElement('style');
   customStylesElement.innerHTML = customStyles;
   document.head.appendChild(customStylesElement);
   console.log('Main script loaded', customStylesElement);
 
-  const tauri = window.__TAURI__;
   const appWindow = tauri.window.getCurrentWindow();
 
   if (!document.querySelector("[data-tauri-decorum-tb]")) {

@@ -1,7 +1,7 @@
 {
   "name": "yt-music-tauri",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.0.1",
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
@@ -12,6 +12,7 @@
     "@tauri-apps/api": "^2.5.0",
     "@tauri-apps/plugin-clipboard-manager": "~2.2.2",
     "@tauri-apps/plugin-opener": "^2.2.6",
+    "@tauri-apps/plugin-store": "~2",
     "@tauri-apps/plugin-window-state": "~2.2.2"
   },
   "devDependencies": {
