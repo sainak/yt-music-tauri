@@ -101,7 +101,7 @@ pub fn main() {
                 });
             store.close_resource();
 
-            let setting_check_autoplay = CheckMenuItemBuilder::new("Enable Autoplay")
+            let setting_check_autoplay = CheckMenuItemBuilder::new("Autoplay on startup")
                 .id("autoplay")
                 .checked(get_autoplay(app.state()))
                 .build(app)?;
