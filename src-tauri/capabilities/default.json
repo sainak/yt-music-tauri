@@ -18,6 +18,11 @@
     "core:window:allow-set-fullscreen",
     "core:webview:allow-internal-toggle-devtools",
     "clipboard-manager:allow-write-text",
-    "store:default"
+    "clipboard-manager:allow-read-text",
+    "store:default",
+    "fs:default",
+    "fs:allow-appcache-meta-recursive",
+    "fs:allow-appcache-read-recursive",
+    "fs:allow-appcache-write-recursive"
   ]
 }

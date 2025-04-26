@@ -63,6 +63,7 @@ pub fn main() {
     let label: &str = "main";
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(
             WindowStatePlugin::default()

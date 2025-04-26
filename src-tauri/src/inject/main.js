@@ -76,10 +76,13 @@ const customStyles = css`
 `;
 
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   const tauri = window.__TAURI__;
-  const LAST_PLAYED_ID = "last-played-id"
 
+  const appCacheDir = tauri.path.appCacheDir;
+  const fs = tauri.fs;
+
+  const LAST_PLAYED_ID = "last-played-id"
   tauri.core.invoke("get_autoplay").then((autoplay) => {
     const lastPlayedId = localStorage.getItem(LAST_PLAYED_ID);
     if (autoplay && lastPlayedId) {
@@ -152,25 +155,39 @@ document.addEventListener('DOMContentLoaded', () => {
     subtree: true
   });
 
-  const cachedRes = []
 
-  // find all urls in the head and add them to the cachedRes 
-  Array.from(document.head.querySelectorAll('link[rel="stylesheet"], script')).forEach(el => {
-    const url = el.href || el.src;
-    if (url) {
-      cachedRes.push(url);
+  // safari doesnt think that internet can go down, so manually handling caching
+  // TODO: abstract logic for other files
+  Array.from(document.head.querySelectorAll('link[rel="stylesheet"]')).forEach(async el => {
+    // TODO: try to cache all css files, safari is not well
+    if (!el.href.startsWith(window.location.origin + '/s/_/')) return;
+    // the main css file
+    const isLoaded = !!(el?.sheet?.cssRules.length);
+    console.log('Processing stylesheet link:', el.href, 'Loaded:', isLoaded);
+    if (isLoaded) {
+      let rules = '';
+      for (let i = 0; i < el.sheet.cssRules.length; i++) {
+        rules += el.sheet.cssRules[i].cssText + '\n';
+      }
+      // this is bad, should not be done on each load, but its a spa so we are okay?
+      await fs.writeTextFile('main.css', rules, { baseDir: fs.BaseDirectory.AppCache });
+    } else {
+      // this is bad, should not be done on each load, but its a spa so we are okay?
+      const cachedRules = await fs.readTextFile('main.css', { baseDir: fs.BaseDirectory.AppCache });
+      const stylesheet = new CSSStyleSheet();
+      stylesheet.replaceSync(cachedRules);
+      document.adoptedStyleSheets = [stylesheet];
     }
   })
 
-  console.log('Cached resources', cachedRes);
 
   //add event listener for service worker install 
-  navigator.serviceWorker.addEventListener('install', (event) => {
-    console.log('Service worker installed');
-    event.waitUntil(
-      caches.open('yt-appshell-assets').then((cache) => {
-        cache.addAll(cachedRes);
-      })
-    );
-  });
+  // navigator.serviceWorker.addEventListener('activate', (event) => {
+  //   console.log('Service worker installed');
+  //   event.waitUntil(
+  //     caches.open('yt-appshell-assets').then((cache) => {
+  //       cache.addAll(cachedRes);
+  //     })
+  //   );
+  // });
 });
