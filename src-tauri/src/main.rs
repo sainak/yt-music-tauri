@@ -102,14 +102,6 @@ pub fn main() {
                 });
             store.close_resource();
 
-            let setting_open_devtools = MenuItem::with_id(
-                app.app_handle(),
-                "open_devtools",
-                "Open DevTools",
-                true,
-                None::<String>,
-            )?;
-
             let setting_check_autoplay = CheckMenuItemBuilder::new("Autoplay on startup")
                 .id("autoplay")
                 .checked(get_autoplay(app.state()))
@@ -117,7 +109,6 @@ pub fn main() {
 
             let settings_sub_menu = SubmenuBuilder::new(app, "Settings...")
                 .item(&setting_check_autoplay)
-                .item(&setting_open_devtools)
                 .build()?;
 
             let custom_quit = MenuItem::with_id(
@@ -150,10 +141,6 @@ pub fn main() {
                     setting_check_autoplay
                         .set_checked(enabled)
                         .expect("Failed to set checked");
-                }
-                if event.id() == setting_open_devtools.id() {
-                    let window = app.get_webview_window(label).unwrap();
-                    window.open_devtools();
                 }
                 if event.id() == custom_quit.id() {
                     let state_mutex = app.state::<Mutex<AppState>>();
