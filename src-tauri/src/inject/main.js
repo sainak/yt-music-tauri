@@ -1,3 +1,4 @@
+const tauri = window.__TAURI__;
 const css = String.raw;
 
 const customStyles = css`
@@ -75,15 +76,75 @@ const customStyles = css`
   }
 `;
 
+async function saveOrLoadCssFromCache(el, _fileName) {
+  try {
+    const fileName = _fileName || el.href.split('/').pop();
+    const isLoaded = !!(el?.sheet?.cssRules.length);
+    console.debug(`Handling CSS file ${fileName}, loaded: ${isLoaded}`);
+    if (isLoaded) {
+      const cacheLastModified = await tauri.fs.stat(fileName, { baseDir: tauri.fs.BaseDirectory.AppCache })
+        .then(fileInfo => fileInfo.mtime)
+        .catch(() => null);
+      const now = new Date();
+      const oneDay = 24 * 60 * 60 * 1000;
+      console.debug(`${fileName} cache last modified: ${cacheLastModified}`);
+      if (cacheLastModified && (now - cacheLastModified) < oneDay) return;
+      const rules = Array.from(el.sheet.cssRules).map(rule => rule.cssText).join('\n');
+      await tauri.fs.writeTextFile(fileName, rules, { baseDir: tauri.fs.BaseDirectory.AppCache }).catch(() => null);
+      console.debug(`Cached ${fileName} at ${now}`);
+    } else {
+      console.debug(`Loading CSS file ${fileName} from cache`);
+      const cachedRules = await tauri.fs.readTextFile(fileName, { baseDir: tauri.fs.BaseDirectory.AppCache }).catch(() => null);
+      if (!cachedRules) return;
+      const stylesheet = new CSSStyleSheet();
+      stylesheet.replaceSync(cachedRules);
+      document.adoptedStyleSheets = [...document.adoptedStyleSheets, stylesheet];
+      console.debug(`Loaded ${fileName} from cache`);
+    }
+  } catch (error) {
+    console.error(`Error handling CSS file ${el.href}:`, error);
+  }
+}
+
+async function saveOrLoadImageFromCache(el) {
+  try {
+    const fileName = el.src.split('/').pop();
+    const isLoaded = (el.complete && el.naturalWidth !== 0)
+    console.debug(`Handling image file ${fileName}, loaded: ${isLoaded}`, el.complete, el.naturalWidth);
+    if (isLoaded) {
+      const cacheLastModified = await tauri.fs.stat(fileName, { baseDir: tauri.fs.BaseDirectory.AppCache })
+        .then(fileInfo => fileInfo.mtime)
+        .catch(() => null);
+      const now = new Date();
+      const oneDay = 24 * 60 * 60 * 1000;
+      console.debug(`${fileName} cache last modified: ${cacheLastModified}`);
+      if (cacheLastModified && (now - cacheLastModified) < oneDay) return;
+      const buf = await fetch(el.src).then(res => res.blob()).then(blob => blob.arrayBuffer());
+      await tauri.fs.writeFile(fileName, buf, { baseDir: tauri.fs.BaseDirectory.AppCache });
+      console.debug(`Cached ${fileName} at ${now}`);
+    } else {
+      console.debug(`Loading image file ${fileName} from cache`);
+      const fileExtension = el.src.split('.').pop();
+      const cachedFile = await tauri.fs.readFile(fileName, { baseDir: tauri.fs.BaseDirectory.AppCache });
+      const mime = (fileExtension === 'svg') ? 'svg+xml' : fileExtension;
+      const blob = new Blob([cachedFile], { type: `image/${mime}` }); // TODO: get the correct type if needed
+      const url = URL.createObjectURL(blob);
+      el.src = url;
+      el.onload = () => {
+        URL.revokeObjectURL(url);
+        console.debug(`Loaded ${fileName} from cache`);
+      }
+    }
+  } catch (error) {
+    console.error(`Error handling image file ${el.src}:`, error);
+  }
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
-  const tauri = window.__TAURI__;
-
-  const appCacheDir = tauri.path.appCacheDir;
   const fs = tauri.fs;
 
   const LAST_PLAYED_ID = "last-played-id"
-  tauri.core.invoke("get_autoplay").then((autoplay) => {
+  await tauri.core.invoke("get_autoplay").then((autoplay) => {
     const lastPlayedId = localStorage.getItem(LAST_PLAYED_ID);
     if (autoplay && lastPlayedId) {
       localStorage.removeItem(LAST_PLAYED_ID);
@@ -94,6 +155,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   })
 
+  // mannual caching for files ignored by the service worker
+  document.head.querySelectorAll('link[rel="stylesheet"]').forEach(el => {
+    if (!el.href.startsWith(window.location.origin)) return; // TODO: cache fonts too
+    if (el.href.startsWith(window.location.origin + '/s/_/')) {
+      saveOrLoadCssFromCache(el, "main.css")
+    } else {
+      saveOrLoadCssFromCache(el);
+    }
+  });
+
+
+
   const customStylesElement = document.createElement('style');
   customStylesElement.innerHTML = customStyles;
   document.head.appendChild(customStylesElement);
@@ -103,7 +176,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (!document.querySelector("[data-tauri-decorum-tb]")) {
     // if the taskbar is not already present, create it
-    let tbElHtml= `
+    let tbElHtml = `
       <div data-tauri-decorum-tb="" style="top: 0px; left: 0px; z-index: 100; width: 100%; height: 32px;
       display: flex; position: fixed; align-items: end; justify-content: end; background-color: transparent;">
         <div data-tauri-drag-region="" style="width: 100%; height: 100%; background: none;"></div>
@@ -111,13 +184,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.body.insertAdjacentHTML('afterbegin', tbElHtml);
   }
 
-
   if (!window.__DEBUG_MODE__) {
     document.addEventListener('contextmenu', event => event.preventDefault());
   }
 
-
-  document.addEventListener('copy', async (event) =>  {
+  document.addEventListener('copy', async (event) => {
     const value = event.target.value
     if (value) {
       event.preventDefault();
@@ -126,7 +197,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       await tauri.clipboardManager.writeText(url.toString());
     }
   });
-
 
   const titleLinkObserver = new MutationObserver((mutations) => {
     mutations.forEach((mutation) => {
@@ -156,34 +226,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
 
-  // safari doesnt think that internet can go down, so manually handling caching
-  // TODO: abstract logic for other files
-  Array.from(document.head.querySelectorAll('link[rel="stylesheet"]')).forEach(async el => {
-    // TODO: try to cache all css files, safari is not well
-    if (!el.href.startsWith(window.location.origin + '/s/_/')) return;
-    // the main css file
-    const isLoaded = !!(el?.sheet?.cssRules.length);
-    console.log('Processing stylesheet link:', el.href, 'Loaded:', isLoaded);
-    if (isLoaded) {
-      let rules = '';
-      for (let i = 0; i < el.sheet.cssRules.length; i++) {
-        rules += el.sheet.cssRules[i].cssText + '\n';
-      }
-      // this is bad, should not be done on each load, but its a spa so we are okay?
-      await fs.writeTextFile('main.css', rules, { baseDir: fs.BaseDirectory.AppCache });
-    } else {
-      // this is bad, should not be done on each load, but its a spa so we are okay?
-      const cachedRules = await fs.readTextFile('main.css', { baseDir: fs.BaseDirectory.AppCache });
-      const stylesheet = new CSSStyleSheet();
-      stylesheet.replaceSync(cachedRules);
-      document.adoptedStyleSheets = [stylesheet];
-    }
-  })
-
-
   //add event listener for service worker install 
   // navigator.serviceWorker.addEventListener('activate', (event) => {
-  //   console.log('Service worker installed');
+  //   console.debug('Service worker installed');
   //   event.waitUntil(
   //     caches.open('yt-appshell-assets').then((cache) => {
   //       cache.addAll(cachedRes);
@@ -191,3 +236,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   //   );
   // });
 });
+
+window.addEventListener('load', () => {
+  // mannual caching for files ignored by the service worker
+  document.querySelectorAll('.logo.ytmusic-logo').forEach(el => saveOrLoadImageFromCache(el));
+})
